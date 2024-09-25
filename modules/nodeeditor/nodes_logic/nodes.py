@@ -6,6 +6,7 @@ import pandas as pd
 import numpy as np
 import asyncio
 import dash
+import requests 
 from flowfunc.types import date, time, month, color, week
 from dataclasses import dataclass
 import operator
@@ -20,14 +21,6 @@ from typing import Literal
 
 
 # Словарь доступных операций
-operations = {
-    'greater_than': operator.gt,    # Больше
-    'less_than': operator.lt,       # Меньше
-    'equal': operator.eq,           # Равно
-    'not_equal': operator.ne,       # Не равно
-    'greater_or_equal': operator.ge, # Больше или равно
-    'less_or_equal': operator.le    # Меньше или равно
-}
 
 async def add_async(number1: int, number2: int) -> int:
     """Add Numbers"""
@@ -103,7 +96,6 @@ def get_vector_magnitude(v: vector):
 
 def send_telegram_message(runs:bool, botid='bot1434601883:AAFDS330oYhld1GttIMLh49gBDnetCezU2A',chat_id="854186602",message="hi"):
     if runs:
-        import requests 
         url=f"https://api.telegram.org/{botid}/sendMessage?chat_id={chat_id}&text={message}"
         ss=requests.post(url)
         return ss
@@ -525,6 +517,203 @@ def get_value_by_key(data: dict, key: str):
     return data.get(key)
 
 
+def binance_spot_testnet_order(api_key: str, api_secret: str, symbol: str, side: Literal['BUY', 'SELL'], order_type: Literal['MARKET', 'LIMIT'] = 'MARKET', quantity: float = None, price: float = None, time_in_force: Literal['GTC', 'IOC', 'FOK'] = 'GTC'):
+    """Binance Spot Testnet Order
+
+    Открывает или закрывает ордер на Binance Spot Testnet.
+
+    Parameters
+    ----------
+    api_key : str
+        Ваш API ключ Binance Testnet.
+    api_secret : str
+        Ваш секретный ключ Binance Testnet.
+    symbol : str
+        Торговая пара (например, 'BTCUSDT').
+    side : str
+        'BUY' или 'SELL'.
+    order_type : str
+        Тип ордера: 'MARKET' или 'LIMIT'.
+    quantity : float
+        Количество для покупки или продажи.
+    price : float, optional
+        Цена для лимитного ордера.
+    time_in_force : str
+        'GTC', 'IOC', или 'FOK' для лимитного ордера.
+
+    Returns
+    -------
+    order : dict
+        Информация об ордере.
+    """
+    # Инициализация клиента с указанием тестового эндпоинта
+    client = Client(api_key, api_secret)
+    client.API_URL = 'https://testnet.binance.vision/api'  # Эндпоинт для спотового тестнета
+
+    order_params = {
+        'symbol': symbol,
+        'side': side,
+        'type': order_type,
+        'quantity': quantity
+    }
+
+    if order_type == 'LIMIT':
+        order_params['price'] = price
+        order_params['timeInForce'] = time_in_force
+
+    order = client.create_order(**order_params)
+    return order
+
+def binance_futures_testnet_order(api_key: str, api_secret: str, symbol: str, side: Literal['BUY', 'SELL'], position_side: Literal['BOTH', 'LONG', 'SHORT'] = 'BOTH', order_type: Literal['MARKET', 'LIMIT'] = 'MARKET', quantity: float = None, price: float = None, time_in_force: Literal['GTC', 'IOC', 'FOK'] = 'GTC'):
+    """Binance Futures Testnet Order
+
+    Открывает или закрывает ордер на Binance Futures Testnet.
+
+    Parameters
+    ----------
+    api_key : str
+        Ваш API ключ Binance Testnet.
+    api_secret : str
+        Ваш секретный ключ Binance Testnet.
+    symbol : str
+        Торговая пара (например, 'BTCUSDT').
+    side : str
+        'BUY' или 'SELL'.
+    position_side : str
+        'BOTH', 'LONG' или 'SHORT'.
+    order_type : str
+        Тип ордера: 'MARKET' или 'LIMIT'.
+    quantity : float
+        Количество для покупки или продажи.
+    price : float, optional
+        Цена для лимитного ордера.
+    time_in_force : str
+        'GTC', 'IOC', или 'FOK' для лимитного ордера.
+
+    Returns
+    -------
+    order : dict
+        Информация об ордере.
+    """
+    # Инициализация клиента с указанием тестового эндпоинта
+    client = Client(api_key, api_secret, testnet=True)  # Параметр testnet=True переключает на тестовую сеть
+
+    order_params = {
+        'symbol': symbol,
+        'side': side,
+        'type': order_type,
+        'quantity': quantity,
+        'positionSide': position_side
+    }
+
+    if order_type == 'LIMIT':
+        order_params['price'] = price
+        order_params['timeInForce'] = time_in_force
+
+    order = client.futures_create_order(**order_params)
+    return order
+
+
+def bybit_futures_testnet_order(api_key: str, api_secret: str, symbol: str, side: Literal['Buy', 'Sell'], order_type: Literal['Market', 'Limit'] = 'Market', qty: float = None, price: float = None, time_in_force: Literal['GoodTillCancel', 'ImmediateOrCancel', 'FillOrKill', 'PostOnly'] = 'GoodTillCancel', reduce_only: bool = False, close_on_trigger: bool = False):
+    """Bybit Futures Testnet Order
+
+    Открывает или закрывает ордер на Bybit Futures Testnet.
+
+    Parameters
+    ----------
+    api_key : str
+        Ваш API ключ Bybit Testnet.
+    api_secret : str
+        Ваш секретный ключ Bybit Testnet.
+    symbol : str
+        Торговая пара (например, 'BTCUSDT').
+    side : str
+        'Buy' или 'Sell'.
+    order_type : str
+        Тип ордера: 'Market' или 'Limit'.
+    qty : float
+        Количество для покупки или продажи.
+    price : float, optional
+        Цена для лимитного ордера.
+    time_in_force : str
+        'GoodTillCancel', 'ImmediateOrCancel', 'FillOrKill', 'PostOnly'.
+    reduce_only : bool
+        Флаг для закрытия позиции.
+    close_on_trigger : bool
+        Флаг для закрытия по триггеру.
+
+    Returns
+    -------
+    order : dict
+        Информация об ордере.
+    """
+    session = HTTP(
+        endpoint="https://api-testnet.bybit.com",
+        api_key=api_key,
+        api_secret=api_secret
+    )
+    order_params = {
+        'symbol': symbol,
+        'side': side,
+        'order_type': order_type,
+        'qty': qty,
+        'time_in_force': time_in_force,
+        'reduce_only': reduce_only,
+        'close_on_trigger': close_on_trigger
+    }
+
+    if order_type == 'Limit':
+        order_params['price'] = price
+
+    order = session.place_active_order(**order_params)
+    return order
+
+def bybit_spot_testnet_order(api_key: str, api_secret: str, symbol: str, side: Literal['BUY', 'SELL'], order_type: Literal['MARKET', 'LIMIT'] = 'MARKET', qty: float = None, price: float = None):
+    """Bybit Spot Testnet Order
+
+    Открывает или закрывает ордер на Bybit Spot Testnet.
+
+    Parameters
+    ----------
+    api_key : str
+        Ваш API ключ Bybit Testnet.
+    api_secret : str
+        Ваш секретный ключ Bybit Testnet.
+    symbol : str
+        Торговая пара (например, 'BTCUSDT').
+    side : str
+        'BUY' или 'SELL'.
+    order_type : str
+        Тип ордера: 'MARKET' или 'LIMIT'.
+    qty : float
+        Количество для покупки или продажи.
+    price : float, optional
+        Цена для лимитного ордера.
+
+    Returns
+    -------
+    order : dict
+        Информация об ордере.
+    """
+    session = HTTP(
+        endpoint="https://api-testnet.bybit.com",
+        api_key=api_key,
+        api_secret=api_secret
+    )
+
+    order_params = {
+        'symbol': symbol,
+        'side': side,
+        'type': order_type,
+        'qty': qty,
+    }
+
+    if order_type == 'LIMIT':
+        order_params['price'] = price
+        order_params['time_in_force'] = 'GTC'  # Для лимитных ордеров требуется указать timeInForce
+
+    order = session.place_active_order(**order_params)
+    return order
 
 all_functions = [
     add_async,
@@ -550,5 +739,9 @@ all_functions = [
     binance_futures_correct_price,
     bybit_spot_correct_price,
     bybit_futures_correct_price,
-    get_value_by_key
+    get_value_by_key,
+    binance_spot_testnet_order,
+    binance_futures_testnet_order,
+    bybit_futures_testnet_order,
+    bybit_spot_testnet_order
 ]

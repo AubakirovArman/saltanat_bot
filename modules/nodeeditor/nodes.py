@@ -71,12 +71,15 @@ page = html.Div(
     [
         dbc.Row(
             [
-                dbc.Col(width=8, children=node_editor),
+                dbc.Col(width=12, children=node_editor),
+                
+            ],
+        ),
+        dbc.Row([
                 dbc.Col(
                     id="output", width=4, style={"height": "100vh", "overflow": "auto"}
                 ),
-            ],
-        ),
+        ]),
         # Компонент для отображения статуса сохранения логики
         html.Div(id="save-status"),
     ],
@@ -105,7 +108,7 @@ def execute_logic(name_logic):
         for node in nodes.values():
             print(node['inputData'])
             if node['type'] == "modules.nodeeditor.nodes_logic.nodes.response_in":
-                node['inputData']['data']['dict'] = dict(data['message'])
+                node['inputData']['data']['dict'] = dict(data)
 
         # Выполнение логики с обновленными данными
         nodes_output = job_runner.run(nodes)

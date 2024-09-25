@@ -27,13 +27,13 @@ app.layout = html.Div([
 def display_page(pathname):
     print(pathname)
     if pathname in ['/','']:
-        return "sss"
+        return "пока тут пусто"
     elif pathname =='/nodes':
         return nodes.page   
     elif pathname =='/charts':
         return charts.page     
     else:
-        return "sss"
+        return "error"
 
 @server.route('/inpu/aaaa', methods=['POST'])
 def handle_post_request():
