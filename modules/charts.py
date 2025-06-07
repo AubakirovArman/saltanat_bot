@@ -1,5 +1,6 @@
 import dash
 from dash import Dash, html, dcc, Input, Output, callback, State
+import dash_bootstrap_components as dbc
 import plotly.graph_objs as go
 import requests
 import pandas as pd
@@ -50,7 +51,13 @@ def create_candlestick_chart(df: pd.DataFrame) -> go.Figure:
             line=dict(color='blue', width=2),
             name='SMA'
         ))
-    fig.update_layout(title='График цены', xaxis_title='Время', yaxis_title='Цена')
+    fig.update_layout(
+        title='График цены',
+        xaxis_title='Время',
+        yaxis_title='Цена',
+        template='plotly_dark',
+        xaxis_rangeslider_visible=False,
+    )
     return fig
 
 all_functions.append(get_price_data)
@@ -63,54 +70,53 @@ fconfig = Config.from_function_list(all_functions)
 job_runner = JobRunner(fconfig)
 
 # Layout приложения
-page = html.Div([
-    html.Div([
-        dcc.Dropdown(
-            id='pair-dropdown',
-            options=[
-                {'label': 'BTC/USDT', 'value': 'BTCUSDT'},
-                {'label': 'ETH/USDT', 'value': 'ETHUSDT'},
-                {'label': 'BNB/USDT', 'value': 'BNBUSDT'},
-                # Добавьте другие пары по необходимости
-            ],
-            value='BTCUSDT',  # Торговая пара по умолчанию
-            clearable=False,
-            style={'width': '48%', 'display': 'inline-block'}
-        ),
-        dcc.Dropdown(
-            id='interval-dropdown',
-            options=[
-                {'label': '1 Minute', 'value': '1m'},
-                {'label': '5 Minutes', 'value': '5m'},
-                {'label': '15 Minutes', 'value': '15m'},
-                {'label': '1 Hour', 'value': '1h'},
-                {'label': '4 Hours', 'value': '4h'},
-                {'label': '1 Day', 'value': '1d'}
-            ],
-            value='1h',  # Интервал по умолчанию
-            clearable=False,
-            style={'width': '48%', 'display': 'inline-block', 'marginLeft': '4%'}
-        ),
-    ], style={'marginBottom': '20px'}),
-    html.Button('Run Node Logic', id='run-node-logic', n_clicks=0),
-    dcc.Graph(id='candlestick-graph'),
-    # Редактор узлов
-    html.Div(
-        id="nodeeditor_container",
-        children=flowfunc.Flowfunc(
-            id="node-editor",
-            config=fconfig.dict(),
-            context={},  # Начальный контекст может быть пустым
-        ),
-        style={
-            "position": "relative",
-            "width": "100%",
-            "height": "50vh",
-            "border": "1px solid black",
-            "margin-top": "20px"
-        },
-    ),
-])
+page = dbc.Container([
+    dbc.Row([
+        dbc.Col([
+            dcc.Dropdown(
+                id='pair-dropdown',
+                options=[
+                    {'label': 'BTC/USDT', 'value': 'BTCUSDT'},
+                    {'label': 'ETH/USDT', 'value': 'ETHUSDT'},
+                    {'label': 'BNB/USDT', 'value': 'BNBUSDT'},
+                ],
+                value='BTCUSDT',
+                clearable=False,
+                className='mb-2'
+            ),
+            dcc.Dropdown(
+                id='interval-dropdown',
+                options=[
+                    {'label': '1 Minute', 'value': '1m'},
+                    {'label': '5 Minutes', 'value': '5m'},
+                    {'label': '15 Minutes', 'value': '15m'},
+                    {'label': '1 Hour', 'value': '1h'},
+                    {'label': '4 Hours', 'value': '4h'},
+                    {'label': '1 Day', 'value': '1d'}
+                ],
+                value='1h',
+                clearable=False,
+            ),
+            html.Button('Run Node Logic', id='run-node-logic', n_clicks=0, className='mt-2'),
+        ], width=12)
+    ], className='mb-2'),
+    dbc.Row([
+        dbc.Col(dcc.Graph(id='candlestick-graph', style={'height': '80vh'}), width=8),
+        dbc.Col(html.Div(
+            id='nodeeditor_container',
+            children=flowfunc.Flowfunc(
+                id='node-editor',
+                config=fconfig.dict(),
+                context={},
+            ),
+            style={
+                'position': 'relative',
+                'height': '80vh',
+                'border': '1px solid black'
+            },
+        ), width=4)
+    ], align='start')
+], fluid=True)
 
 # Коллбек для обновления графика на основе логики узлов
 @callback(
