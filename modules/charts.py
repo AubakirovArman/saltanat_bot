@@ -2,67 +2,15 @@ import dash
 from dash import Dash, html, dcc, Input, Output, callback, State
 import dash_bootstrap_components as dbc
 import plotly.graph_objs as go
-import requests
-import pandas as pd
 import flowfunc
 from flowfunc.config import Config
 from flowfunc.jobrunner import JobRunner
-from modules.nodeeditor.nodes_logic.nodes import all_functions
-
-
-def get_price_data(symbol: str = None, interval: str = '1m', limit: int = 500, context: dict = None) -> pd.DataFrame:
-    """Get Price Data"""
-    if context:
-        symbol = context.get('symbol', symbol)
-        interval = context.get('interval', interval)
-    url = f'https://api.binance.com/api/v3/klines?symbol={symbol}&interval={interval}&limit={limit}'
-    response = requests.get(url)
-    data = response.json()
-    df = pd.DataFrame(data, columns=[
-        'timestamp', 'open', 'high', 'low', 'close', 'volume',
-        'close_time', 'quote_asset_volume', 'number_of_trades',
-        'taker_buy_base_asset_volume', 'taker_buy_quote_asset_volume', 'ignore'
-    ])
-    df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
-    df[['open', 'high', 'low', 'close']] = df[['open', 'high', 'low', 'close']].astype(float)
-    return df
-
-def calculate_sma(df: pd.DataFrame, window: int = 5) -> pd.DataFrame:
-    """Calculate SMA"""
-    df['SMA'] = df['close'].rolling(window=window).mean()
-    return df
-
-def create_candlestick_chart(df: pd.DataFrame) -> go.Figure:
-    """Create Candlestick Chart"""
-    fig = go.Figure(data=[go.Candlestick(
-        x=df['timestamp'],
-        open=df['open'],
-        high=df['high'],
-        low=df['low'],
-        close=df['close'],
-        name='Candlesticks'
-    )])
-    # Если в DataFrame есть колонка SMA, добавляем её на график
-    if 'SMA' in df.columns:
-        fig.add_trace(go.Scatter(
-            x=df['timestamp'],
-            y=df['SMA'],
-            mode='lines',
-            line=dict(color='blue', width=2),
-            name='SMA'
-        ))
-    fig.update_layout(
-        title='График цены',
-        xaxis_title='Время',
-        yaxis_title='Цена',
-        template='plotly_dark',
-        xaxis_rangeslider_visible=False,
-    )
-    return fig
-
-all_functions.append(get_price_data)
-all_functions.append(calculate_sma)
-all_functions.append(create_candlestick_chart)
+from modules.nodeeditor.nodes_logic.nodes import (
+    all_functions,
+    get_price_data,
+    calculate_sma,
+    create_candlestick_chart,
+)
 # Инициализация приложения Dash
 
 # Конфигурация Flowfunc
@@ -97,7 +45,7 @@ page = dbc.Container([
                 value='1h',
                 clearable=False,
             ),
-            html.Button('Run Node Logic', id='run-node-logic', n_clicks=0, className='mt-2'),
+            dcc.Interval(id='update-interval', interval=5000, n_intervals=0),
         ], width=12)
     ], className='mb-2'),
     dbc.Row([
@@ -121,19 +69,16 @@ page = dbc.Container([
 # Коллбек для обновления графика на основе логики узлов
 @callback(
     Output('candlestick-graph', 'figure'),
-    Input('run-node-logic', 'n_clicks'),
+    Input('update-interval', 'n_intervals'),
     State('pair-dropdown', 'value'),
     State('interval-dropdown', 'value'),
     State('node-editor', 'nodes'),
 )
-def update_graph(n_clicks, selected_pair, selected_interval, nodes):
-    if n_clicks == 0:
-        # Возвращаем пустой график до нажатия кнопки
-        return go.Figure()
+def update_graph(n_intervals, selected_pair, selected_interval, nodes):
 
     if not nodes:
-        # Если узлы не настроены, возвращаем пустой график
-        return go.Figure()
+        df = get_price_data(symbol=selected_pair, interval=selected_interval)
+        return create_candlestick_chart(df)
 
     # Контекст для передачи данных в узлы
     context = {

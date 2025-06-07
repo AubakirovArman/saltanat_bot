@@ -2,6 +2,7 @@ from time import sleep
 from typing import Literal, Union, Tuple, NewType
 from dash import html, dcc
 import plotly.express as px
+import plotly.graph_objs as go
 import pandas as pd
 import numpy as np
 import asyncio
@@ -715,6 +716,57 @@ def bybit_spot_testnet_order(api_key: str, api_secret: str, symbol: str, side: L
     order = session.place_active_order(**order_params)
     return order
 
+# --- Price Utility Nodes ---
+def get_price_data(symbol: str = 'BTCUSDT', interval: str = '1m', limit: int = 500, context: dict | None = None) -> pd.DataFrame:
+    """Fetch OHLCV price data from Binance."""
+    if context:
+        symbol = context.get('symbol', symbol)
+        interval = context.get('interval', interval)
+    url = f'https://api.binance.com/api/v3/klines?symbol={symbol}&interval={interval}&limit={limit}'
+    response = requests.get(url)
+    data = response.json()
+    df = pd.DataFrame(data, columns=[
+        'timestamp', 'open', 'high', 'low', 'close', 'volume',
+        'close_time', 'quote_asset_volume', 'number_of_trades',
+        'taker_buy_base_asset_volume', 'taker_buy_quote_asset_volume', 'ignore'
+    ])
+    df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+    df[['open', 'high', 'low', 'close']] = df[['open', 'high', 'low', 'close']].astype(float)
+    return df
+
+
+def calculate_sma(df: pd.DataFrame, window: int = 5) -> pd.DataFrame:
+    """Calculate Simple Moving Average."""
+    df['SMA'] = df['close'].rolling(window=window).mean()
+    return df
+
+
+def create_candlestick_chart(df: pd.DataFrame) -> go.Figure:
+    """Generate candlestick chart with optional SMA line."""
+    fig = go.Figure(data=[go.Candlestick(
+        x=df['timestamp'],
+        open=df['open'],
+        high=df['high'],
+        low=df['low'],
+        close=df['close'],
+        name='Candlesticks'
+    )])
+    if 'SMA' in df.columns:
+        fig.add_trace(go.Scatter(
+            x=df['timestamp'],
+            y=df['SMA'],
+            mode='lines',
+            line=dict(color='blue', width=2),
+            name='SMA'
+        ))
+    fig.update_layout(
+        template='plotly_dark',
+        xaxis_rangeslider_visible=False,
+        xaxis_title='Time',
+        yaxis_title='Price'
+    )
+    return fig
+
 all_functions = [
     add_async,
     add_sync,
@@ -743,5 +795,8 @@ all_functions = [
     binance_spot_testnet_order,
     binance_futures_testnet_order,
     bybit_futures_testnet_order,
-    bybit_spot_testnet_order
+    bybit_spot_testnet_order,
+    get_price_data,
+    calculate_sma,
+    create_candlestick_chart,
 ]
