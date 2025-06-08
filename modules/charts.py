@@ -80,27 +80,21 @@ page = dbc.Container([
 ], fluid=True)
 
 # ----- callbacks -----
-# Добавление индикатора SMA
+# Combined callback for graph updates and logging
 @callback(
-    [Output('indicator-store', 'data'), Output('log-output', 'value')],
-    Input('add-indicator-btn', 'n_clicks'),
-    State('log-output', 'value'),
-    prevent_initial_call=True
-)
-def add_indicator(n_clicks, log):
-    if not n_clicks:
-        return dash.no_update, log
-    log = (log or '') + f"{datetime.now():%H:%M:%S} SMA indicator added\n"
-    return True, log
-
-
-# Обновление графика и выполнение стратегии
-@callback(
-    [Output('candlestick-graph', 'figure'), Output('log-output', 'value')],
-    [Input('update-interval', 'n_intervals'), Input('run-strategy-btn', 'n_clicks')],
+    [Output('candlestick-graph', 'figure'), Output('log-output', 'value'), Output('indicator-store', 'data')],
+    [Input('update-interval', 'n_intervals'), Input('run-strategy-btn', 'n_clicks'), Input('add-indicator-btn', 'n_clicks')],
     [State('pair-dropdown', 'value'), State('interval-dropdown', 'value'), State('node-editor', 'nodes'), State('indicator-store', 'data'), State('log-output', 'value')],
 )
-def update_graph(n_intervals, run_clicks, selected_pair, selected_interval, nodes, indicator, log):
+def update_graph_and_logs(n_intervals, run_clicks, add_clicks, selected_pair, selected_interval, nodes, indicator, log):
+    ctx = dash.callback_context
+    
+    # Handle add indicator button click
+    if ctx.triggered and ctx.triggered[0]['prop_id'].startswith('add-indicator-btn'):
+        if add_clicks:
+            log = (log or '') + f"{datetime.now():%H:%M:%S} SMA indicator added\n"
+            indicator = True
+    
     df = get_price_data(symbol=selected_pair, interval=selected_interval)
     if indicator:
         df = calculate_sma(df)
@@ -130,7 +124,7 @@ def update_graph(n_intervals, run_clicks, selected_pair, selected_interval, node
             name='Sell'
         ))
 
-    ctx = dash.callback_context
+    # Handle run strategy button click
     if ctx.triggered and ctx.triggered[0]['prop_id'].startswith('run-strategy-btn'):
         if nodes:
             context = {'symbol': selected_pair, 'interval': selected_interval}
@@ -142,4 +136,4 @@ def update_graph(n_intervals, run_clicks, selected_pair, selected_interval, node
         else:
             log = (log or '') + f"{datetime.now():%H:%M:%S} No nodes to run\n"
 
-    return fig, log
+    return fig, log, indicator
