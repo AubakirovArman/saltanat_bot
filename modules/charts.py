@@ -1,5 +1,5 @@
 import dash
-from dash import Dash, html, dcc, Input, Output, callback, State
+from dash import html, dcc, Input, Output, callback, State
 import dash_bootstrap_components as dbc
 import plotly.graph_objs as go
 import extended_flowfunc as flowfunc
@@ -11,6 +11,7 @@ from modules.nodeeditor.nodes_logic.nodes import (
     calculate_sma,
     create_candlestick_chart,
 )
+from datetime import datetime
 # Инициализация приложения Dash
 
 # Конфигурация Flowfunc
@@ -19,37 +20,49 @@ job_runner = JobRunner(fconfig)
 
 # Layout приложения
 page = dbc.Container([
+    dcc.Store(id='indicator-store', data=False),
     dbc.Row([
         dbc.Col([
-            dcc.Dropdown(
-                id='pair-dropdown',
-                options=[
-                    {'label': 'BTC/USDT', 'value': 'BTCUSDT'},
-                    {'label': 'ETH/USDT', 'value': 'ETHUSDT'},
-                    {'label': 'BNB/USDT', 'value': 'BNBUSDT'},
-                ],
-                value='BTCUSDT',
-                clearable=False,
-                className='mb-2'
-            ),
-            dcc.Dropdown(
-                id='interval-dropdown',
-                options=[
-                    {'label': '1 Minute', 'value': '1m'},
-                    {'label': '5 Minutes', 'value': '5m'},
-                    {'label': '15 Minutes', 'value': '15m'},
-                    {'label': '1 Hour', 'value': '1h'},
-                    {'label': '4 Hours', 'value': '4h'},
-                    {'label': '1 Day', 'value': '1d'}
-                ],
-                value='1h',
-                clearable=False,
-            ),
-            dcc.Interval(id='update-interval', interval=5000, n_intervals=0),
+            dbc.ButtonGroup([
+                dcc.Dropdown(
+                    id='pair-dropdown',
+                    options=[
+                        {'label': 'BTC/USDT', 'value': 'BTCUSDT'},
+                        {'label': 'ETH/USDT', 'value': 'ETHUSDT'},
+                        {'label': 'BNB/USDT', 'value': 'BNBUSDT'},
+                    ],
+                    value='BTCUSDT',
+                    clearable=False,
+                    className='mr-2',
+                    style={'minWidth': '150px'}
+                ),
+                dcc.Dropdown(
+                    id='interval-dropdown',
+                    options=[
+                        {'label': '1m', 'value': '1m'},
+                        {'label': '5m', 'value': '5m'},
+                        {'label': '15m', 'value': '15m'},
+                        {'label': '1h', 'value': '1h'},
+                        {'label': '1d', 'value': '1d'}
+                    ],
+                    value='1h',
+                    clearable=False,
+                    style={'minWidth': '100px'}
+                ),
+                dbc.Button('Добавить индикатор', id='add-indicator-btn', color='secondary', className='ml-2'),
+                dbc.Button('Запустить стратегию', id='run-strategy-btn', color='primary', className='ml-2'),
+            ], className='flex flex-wrap gap-2'),
+            dcc.Interval(id='update-interval', interval=5000, n_intervals=0)
         ], width=12)
     ], className='mb-2'),
     dbc.Row([
-        dbc.Col(dcc.Graph(id='candlestick-graph', style={'height': '80vh'}), width=8),
+        dbc.Col([
+            dcc.Graph(id='candlestick-graph', style={'height': '70vh'}),
+            html.Div([
+                html.H6('Логи стратегии', className='mt-2'),
+                dcc.Textarea(id='log-output', style={'width': '100%', 'height': '15vh', 'backgroundColor': '#1e1e1e', 'color': '#fff'})
+            ])
+        ], width=8),
         dbc.Col(html.Div(
             id='nodeeditor_container',
             children=flowfunc.Flowfunc(
@@ -59,57 +72,74 @@ page = dbc.Container([
             ),
             style={
                 'position': 'relative',
-                'height': '80vh',
-                'border': '1px solid black'
+                'height': '85vh',
+                'border': '1px solid #444'
             },
         ), width=4)
     ], align='start')
 ], fluid=True)
 
-# Коллбек для обновления графика на основе логики узлов
+# ----- callbacks -----
+# Добавление индикатора SMA
 @callback(
-    Output('candlestick-graph', 'figure'),
-    Input('update-interval', 'n_intervals'),
-    State('pair-dropdown', 'value'),
-    State('interval-dropdown', 'value'),
-    State('node-editor', 'nodes'),
+    [Output('indicator-store', 'data'), Output('log-output', 'value')],
+    Input('add-indicator-btn', 'n_clicks'),
+    State('log-output', 'value'),
+    prevent_initial_call=True
 )
-def update_graph(n_intervals, selected_pair, selected_interval, nodes):
+def add_indicator(n_clicks, log):
+    if not n_clicks:
+        return dash.no_update, log
+    log = (log or '') + f"{datetime.now():%H:%M:%S} SMA indicator added\n"
+    return True, log
 
-    if not nodes:
-        df = get_price_data(symbol=selected_pair, interval=selected_interval)
-        return create_candlestick_chart(df)
 
-    # Контекст для передачи данных в узлы
-    context = {
-        'symbol': selected_pair,
-        'interval': selected_interval
-    }
+# Обновление графика и выполнение стратегии
+@callback(
+    [Output('candlestick-graph', 'figure'), Output('log-output', 'value')],
+    [Input('update-interval', 'n_intervals'), Input('run-strategy-btn', 'n_clicks')],
+    [State('pair-dropdown', 'value'), State('interval-dropdown', 'value'), State('node-editor', 'nodes'), State('indicator-store', 'data'), State('log-output', 'value')],
+)
+def update_graph(n_intervals, run_clicks, selected_pair, selected_interval, nodes, indicator, log):
+    df = get_price_data(symbol=selected_pair, interval=selected_interval)
+    if indicator:
+        df = calculate_sma(df)
+    fig = create_candlestick_chart(df)
 
-    try:
-        # Выполняем логику узлов с заданным контекстом
-        nodes_output = job_runner.run(nodes, context=context)
-    except Exception as e:
-        print(f"Ошибка при выполнении логики узлов: {e}")
-        return go.Figure()
+    if indicator and 'SMA' in df.columns:
+        df['prev_close'] = df['close'].shift(1)
+        df['prev_sma'] = df['SMA'].shift(1)
+        buys = df[(df['prev_close'] < df['prev_sma']) & (df['close'] > df['SMA'])]
+        sells = df[(df['prev_close'] > df['prev_sma']) & (df['close'] < df['SMA'])]
+        fig.add_trace(go.Scatter(
+            x=buys['timestamp'],
+            y=buys['low'] * 0.995,
+            mode='markers',
+            marker_symbol='triangle-up',
+            marker_color='green',
+            marker_size=10,
+            name='Buy'
+        ))
+        fig.add_trace(go.Scatter(
+            x=sells['timestamp'],
+            y=sells['high'] * 1.005,
+            mode='markers',
+            marker_symbol='triangle-down',
+            marker_color='red',
+            marker_size=10,
+            name='Sell'
+        ))
 
-    # Поиск графика в выходных данных узлов
-    graph = None
-    for node in nodes_output.values():
-        if isinstance(node.result, go.Figure):
-            graph = node.result
-            break
-        elif isinstance(node.result, dcc.Graph):
-            graph = node.result
-            break
-
-    if graph:
-        if isinstance(graph, dcc.Graph):
-            return graph.figure
-        elif isinstance(graph, go.Figure):
-            return graph
+    ctx = dash.callback_context
+    if ctx.triggered and ctx.triggered[0]['prop_id'].startswith('run-strategy-btn'):
+        if nodes:
+            context = {'symbol': selected_pair, 'interval': selected_interval}
+            try:
+                job_runner.run(nodes, context=context)
+                log = (log or '') + f"{datetime.now():%H:%M:%S} Strategy executed\n"
+            except Exception as e:
+                log = (log or '') + f"{datetime.now():%H:%M:%S} Error: {e}\n"
         else:
-            return go.Figure()
-    else:
-        # Если график не найден, возвращаем пустой график
-        return go.Figure()
+            log = (log or '') + f"{datetime.now():%H:%M:%S} No nodes to run\n"
+
+    return fig, log
