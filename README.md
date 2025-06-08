@@ -7,6 +7,9 @@
 pip install dash dash-bootstrap-components flask plotly requests pandas flowfunc numpy pybit python-binance
 ```
 
+Дополнительные возможности кастомизации узлов доступны через модуль
+`extended_flowfunc`, который расширяет библиотеку `flowfunc`.
+
 **Запуск**
 ```
 python main.py

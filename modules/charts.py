@@ -2,8 +2,8 @@ import dash
 from dash import Dash, html, dcc, Input, Output, callback, State
 import dash_bootstrap_components as dbc
 import plotly.graph_objs as go
-import flowfunc
-from flowfunc.config import Config
+import extended_flowfunc as flowfunc
+from extended_flowfunc import Config
 from flowfunc.jobrunner import JobRunner
 from modules.nodeeditor.nodes_logic.nodes import (
     all_functions,

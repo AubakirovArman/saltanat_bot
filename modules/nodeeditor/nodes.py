@@ -1,8 +1,8 @@
-import flowfunc
+import extended_flowfunc as flowfunc
 import time
 import os
 from dash import html, dcc
-from flowfunc.config import Config 
+from extended_flowfunc import Config
 from flowfunc.jobrunner import JobRunner
 import dash
 from dash.dependencies import Input, Output, State
@@ -11,11 +11,12 @@ import dash_bootstrap_components as dbc
 import json
 import base64
 from flask import Blueprint, request,jsonify
-from flowfunc.models import OutNode, Node, Port
+from flowfunc.models import OutNode
+from extended_flowfunc.models import Node, Port
 from modules.nodeeditor.nodes_logic.nodes import all_functions
 from dash import Dash, html, dcc, Input, Output, callback, State
 from typing import Any
-from flowfunc.models import Node, Port
+from extended_flowfunc.models import Node, Port
 
 
 
